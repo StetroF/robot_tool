@@ -1,0 +1,33 @@
+# 机器人控制器配置文件
+robot_tool:
+  ros__parameters:
+    # URDF文件路径
+    urdf_path: "/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf"
+    
+    # 手臂前缀配置
+    arm_prefix: ["r", "l"]  # 右臂前缀'r'，左臂前缀'l'
+    
+    # 末端执行器链接名称
+    end_effector_link_name: ["rt", "lt"]  # 右臂末端'rt'，左臂末端'lt'
+    
+    # 关节数量
+    num_joints: 7  # 7自由度机械臂
+    
+    # 可视化选项
+    visualize: false
+    
+    # 伺服发布频率
+    servo_publish_rate: 125.0  # Hz
+    
+    # 插值参数
+    interpolation:
+      default_step: 0.05  # 默认插值步长（米）
+      max_points: 1000    # 最大插值点数
+      default_type: "LINEAR"  # 默认插值类型：LINEAR, BEZIER, CIRCULAR_ARC, CUBIC_POLY, QUINTIC_POLY, PARABOLIC
+    
+    # 运动参数
+    motion:
+      default_velocity: 0.1      # 默认速度
+      default_acceleration: 0.1  # 默认加速度
+      max_velocity: 1.0          # 最大速度
+      max_acceleration: 1.0      # 最大加速度 
