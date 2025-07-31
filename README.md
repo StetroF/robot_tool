@@ -44,7 +44,7 @@ robot_tool:
 ### 2. 实现您的机器人控制器
 
 创建您的机器人控制器类，继承 `BaseRobotController`：
-有五个必须重写的函数
+有四个必须重写的函数
 
 ```python
 from robot_tool.base_robot_controller import BaseRobotController
@@ -58,7 +58,7 @@ class MyRobotController(BaseRobotController):
         # 初始化您的机器人连接
         self.robot = MyRobot()
     
-    # ==================== 必须实现的5个函数 ====================
+    # ==================== 必须实现的4个函数 ====================
     
     def get_current_pose(self, arm=Arm.right) -> List[float]:
         """获取当前末端执行器位姿"""
@@ -80,13 +80,7 @@ class MyRobotController(BaseRobotController):
         else:
             return self.robot.get_left_joints()
     
-    def get_current_joint_velocities(self, arm=Arm.right) -> List[float]:
-        """获取当前关节速度"""
-        # 返回值格式：[v1, v2, v3, v4, v5, v6, v7]（弧度/秒）
-        if arm == Arm.right:
-            return self.robot.get_right_velocities()
-        else:
-            return self.robot.get_left_velocities()
+
     
     def move_to_joint_angles(self, joint_angles, velocity, acceleration, arm=Arm.right, block=False):
         """关节空间移动"""
@@ -102,6 +96,9 @@ class MyRobotController(BaseRobotController):
             self.robot.wait_for_motion_complete()
         return True
     
+    """
+    如果不需要伺服运动，则不需要这个函数
+    """
     def servo_move_to_joint_angles(self, joint_angles, velocity=None, acceleration=None, arm=Arm.right):
         """伺服移动（用于插值运动）"""
         # joint_angles: {Arm.left: [[angles], [angles], ...], Arm.right: [[angles], [angles], ...]}

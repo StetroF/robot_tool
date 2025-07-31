@@ -261,7 +261,7 @@ class BaseRobotController(ABC):
         """
         pass
     
-    @abstractmethod
+    # @abstractmethod
     def get_current_joint_velocities(self, arm=Arm.right) -> Union[List[float], np.ndarray, object]:
         """
         获取当前关节速度
