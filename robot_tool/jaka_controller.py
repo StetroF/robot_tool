@@ -24,19 +24,54 @@ class JakaController(BaseRobotController):
         super().__init__(self.urdf_path, self.arm_prefix, self.end_effector_link_name, self.num_joints, self.visualize)
 
     def _init_ros2(self):
+        # 声明参数（从配置文件读取）
         self.node.declare_parameter('urdf_path', '/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf')
         self.node.declare_parameter('arm_prefix', ['r', 'l'])
         self.node.declare_parameter('end_effector_link_name', ['rt', 'lt'])
         self.node.declare_parameter('num_joints', 7)
         self.node.declare_parameter('visualize', False)
-        self.node.declare_parameter('servo_publish_rate', 125.0)  # 伺服发布频率，默认125Hz
+        self.node.declare_parameter('servo_publish_rate', 125.0)
         
+        # 插值参数
+        self.node.declare_parameter('interpolation.default_step', 0.05)
+        self.node.declare_parameter('interpolation.max_points', 1000)
+        self.node.declare_parameter('interpolation.default_type', 'LINEAR')
+        
+        # 运动参数
+        self.node.declare_parameter('motion.default_velocity', 0.1)
+        self.node.declare_parameter('motion.default_acceleration', 0.1)
+        self.node.declare_parameter('motion.max_velocity', 1.0)
+        self.node.declare_parameter('motion.max_acceleration', 1.0)
+        
+        # 获取参数值
         self.urdf_path = self.node.get_parameter('urdf_path').value
         self.arm_prefix = self.node.get_parameter('arm_prefix').value
         self.end_effector_link_name = self.node.get_parameter('end_effector_link_name').value
         self.num_joints = self.node.get_parameter('num_joints').value
         self.visualize = self.node.get_parameter('visualize').value
         self.servo_publish_rate = self.node.get_parameter('servo_publish_rate').value
+        
+        # 获取插值参数
+        self.default_step = self.node.get_parameter('interpolation.default_step').value
+        self.max_points = self.node.get_parameter('interpolation.max_points').value
+        self.default_interpolate_type = self.node.get_parameter('interpolation.default_type').value
+        
+        # 获取运动参数
+        self.default_velocity = self.node.get_parameter('motion.default_velocity').value
+        self.default_acceleration = self.node.get_parameter('motion.default_acceleration').value
+        self.max_velocity = self.node.get_parameter('motion.max_velocity').value
+        self.max_acceleration = self.node.get_parameter('motion.max_acceleration').value
+        
+        # 打印配置信息
+        self.node.get_logger().info(f'Loaded configuration:')
+        self.node.get_logger().info(f'  URDF: {self.urdf_path}')
+        self.node.get_logger().info(f'  Arm prefixes: {self.arm_prefix}')
+        self.node.get_logger().info(f'  End effectors: {self.end_effector_link_name}')
+        self.node.get_logger().info(f'  Joints: {self.num_joints}')
+        self.node.get_logger().info(f'  Servo rate: {self.servo_publish_rate}Hz')
+        self.node.get_logger().info(f'  Default step: {self.default_step}m')
+        self.node.get_logger().info(f'  Default velocity: {self.default_velocity}')
+        self.node.get_logger().info(f'  Default acceleration: {self.default_acceleration}')
         
         self.node.create_subscription(RobotStateDual, 'robot_state_dual', self.robot_state_callback, 10)
         self.move_j_client = self.node.create_client(MultiMovJ, 'multi_movj')
@@ -97,10 +132,15 @@ class JakaController(BaseRobotController):
     # ==================== 重写的运动方法 ====================
     
     def move_to_joint_angles(self, joint_angles: Dict[Arm, List[float]], 
-                           velocity: Union[float, List[float]], 
-                           acceleration: Union[float, List[float]], 
+                           velocity: Union[float, List[float]] = None, 
+                           acceleration: Union[float, List[float]] = None, 
                            arm=Arm.right, block=False):
         """移动到指定关节角度"""
+        # 使用配置文件中的默认值
+        if velocity is None:
+            velocity = self.default_velocity
+        if acceleration is None:
+            acceleration = self.default_acceleration
         request = MultiMovJ.Request()
         request.robot_id = arm
         request.is_block = block
@@ -155,6 +195,11 @@ class JakaController(BaseRobotController):
     def servo_move_to_joint_angles(self, joint_angles: Union[Dict[Arm, List[List[float]]], List[List[float]]], 
                                  velocity=None, acceleration=None, arm=Arm.right):
         """伺服移动到指定关节角度"""
+        # 使用配置文件中的默认值
+        if velocity is None:
+            velocity = self.default_velocity
+        if acceleration is None:
+            acceleration = self.default_acceleration
         # 检查机器人状态是否可用
         if not self.is_robot_state_available():
             raise ValueError('robot_state is not available')
@@ -307,7 +352,7 @@ def main():
         arm=Arm.left, 
         interpolate=True, 
         interpolate_type=InterpolateType.LINEAR, 
-        step=0.005
+        step=controller.default_step
     ))
 
     time.sleep(3)
