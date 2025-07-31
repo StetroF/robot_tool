@@ -44,6 +44,7 @@ robot_tool:
 ### 2. 实现您的机器人控制器
 
 创建您的机器人控制器类，继承 `BaseRobotController`：
+有五个必须重写的函数
 
 ```python
 from robot_tool.base_robot_controller import BaseRobotController
