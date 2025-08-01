@@ -27,6 +27,7 @@ setup(
     entry_points={
         'console_scripts': [
             'jaka_controller_node = robot_tool.jaka_controller:main',
+            'robot_fastapi_server = robot_tool.robot_fastapi:main',
         ],
     },
 )

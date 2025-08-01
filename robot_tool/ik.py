@@ -198,7 +198,6 @@ class Arm_IK:
         
         self.opti.set_initial(self.var_q, init_joint_angles) if init_joint_angles is not None else self.opti.set_initial(self.var_q, self.init_data)
         self.opti.set_value(self.param_tf, target_pose)
-
         if self.visualize:
             self.vis.viewer[f'ee_target_{self.arm_prefix}'].set_transform(target_pose)
 

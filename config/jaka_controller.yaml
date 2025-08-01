@@ -1,5 +1,5 @@
 # 机器人控制器配置文件
-robot_tool:
+jaka_controller:
   ros__parameters:
     # URDF文件路径
     urdf_path: "/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf"
@@ -21,9 +21,9 @@ robot_tool:
     
     # 插值参数
     interpolation:
-      default_step: 0.05  # 默认插值步长（米）
+      default_step: 0.02  # 默认插值步长（米）
       max_points: 1000    # 最大插值点数
-      default_type: "LINEAR"  # 默认插值类型：LINEAR, BEZIER, CIRCULAR_ARC, CUBIC_POLY, QUINTIC_POLY, PARABOLIC
+      default_type: "CIRCULAR_ARC"  # 默认插值类型：LINEAR, BEZIER, CIRCULAR_ARC, CUBIC_POLY, QUINTIC_POLY, PARABOLIC
     
     # 运动参数
     motion:

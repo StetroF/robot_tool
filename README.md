@@ -52,7 +52,7 @@ conda install pinocchio casadi -c conda-forge
 在 `config/robot_config.yaml` 中配置您的机器人参数：
 
 ```yaml
-robot_tool:
+jaka_controller:
   ros__parameters:
     # URDF文件路径（必须）
     urdf_path: "/path/to/your/robot.urdf"

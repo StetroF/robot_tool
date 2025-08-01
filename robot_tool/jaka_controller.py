@@ -10,7 +10,7 @@ from jaka_robot_interfaces.srv import MultiMovJ
 from jiazhua_interfaces.msg import JiaZhuaDualCmd  # 需要导入夹爪消息类型
 from typing import Literal, Union, List, Dict
 from robot_tool.base_robot_controller import BaseRobotController
-from robot_tool.data_struct import Arm, MoveToRequest
+from robot_tool.base_robot_controller import Arm, MoveToRequest
 import time
 import threading
 import time
@@ -24,7 +24,6 @@ class JakaController(BaseRobotController):
         super().__init__(self.urdf_path, self.arm_prefix, self.end_effector_link_name, self.num_joints, self.visualize)
 
     def _init_ros2(self):
-        # 声明参数（从配置文件读取）
         self.node.declare_parameter('urdf_path', '/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf')
         self.node.declare_parameter('arm_prefix', ['r', 'l'])
         self.node.declare_parameter('end_effector_link_name', ['rt', 'lt'])
@@ -33,9 +32,9 @@ class JakaController(BaseRobotController):
         self.node.declare_parameter('servo_publish_rate', 125.0)
         
         # 插值参数
-        self.node.declare_parameter('interpolation.default_step', 0.05)
+        self.node.declare_parameter('interpolation.default_step', 0.01)
         self.node.declare_parameter('interpolation.max_points', 1000)
-        self.node.declare_parameter('interpolation.default_type', 'LINEAR')
+        self.node.declare_parameter('interpolation.default_type', 'BEZIER')
         
         # 运动参数
         self.node.declare_parameter('motion.default_velocity', 0.1)
@@ -346,7 +345,7 @@ def main():
     ry = ry/180.0*math.pi
     rz = rz/180.0*math.pi
     target_pose = [x, y +0.4, z, rx, ry, rz]
-    
+     
     controller.move_to_tag(MoveToRequest(
         target_pose=target_pose, 
         arm=Arm.left, 

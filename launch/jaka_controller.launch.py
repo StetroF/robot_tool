@@ -9,10 +9,11 @@ def generate_launch_description():
     # 获取包路径
     pkg_share = get_package_share_directory('robot_tool')
     
+    
     # 声明启动参数
     config_file_arg = DeclareLaunchArgument(
         'config_file',
-        default_value=os.path.join(pkg_share, 'config', 'robot_config.yaml'),
+        default_value=os.path.join(pkg_share, 'config', 'jaka_controller.yaml'),
         description='Path to the robot configuration file'
     )
     

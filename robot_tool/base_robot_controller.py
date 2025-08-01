@@ -1,10 +1,30 @@
 from robot_tool.ik import Arm_IK
-from robot_tool.data_struct import Arm, MoveToRequest, InterpolateType
 from abc import ABC, abstractmethod
 from robot_tool.interpolate import PoseInterpolator
 from typing import List, Dict, Tuple, Optional, Union
 import numpy as np
 import math
+from pydantic import BaseModel
+from typing import Literal
+from enum import Enum
+from robot_tool.interpolate import InterpolateType
+class Arm:
+    left = 0
+    right = 1
+    both = -1
+
+class MoveToRequest(BaseModel):
+    target_pose: list[float]    #### [x,y,z,rx,ry,rz]
+    arm: int = Arm.right
+    interpolate: bool = False
+    interpolate_type: int = InterpolateType.LINEAR
+    step: float = 0.01  ## 插值步长
+    velocity: float = 20.0  ##°/s
+    acceleration: float = 20.0  ##°/s^2
+    block: bool = False ##运动时是否阻塞
+    
+
+
 
 class BaseRobotController(ABC):
     def __init__(self, urdf_path, arm_prefix: List[str], 
@@ -148,7 +168,6 @@ class BaseRobotController(ABC):
                 init_joint_angles = self._standardize_joint_angles(init_left_angles)
             else:
                 init_joint_angles = self._get_standardized_joint_angles(Arm.left)
-            
             result = self.L_inverse_solution.ik_fun(target_matrix, init_joint_angles=init_joint_angles)
             if result[0] is not None:  # 检查是否成功
                 angles[Arm.left] = result[0].tolist() if hasattr(result[0], 'tolist') else list(result[0])
