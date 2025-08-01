@@ -2,6 +2,49 @@
 
 一个统一的机器人控制器接口包，支持多种机器人平台，自动处理逆运动学、插值计算和运动规划。
 
+## 📋 前置要求
+
+### Conda环境配置
+
+本包依赖Conda环境中的`pinocchio`库进行逆运动学计算。请按以下步骤配置环境：
+
+#### 1. 激活Conda
+
+**临时激活（当前终端生效）：**
+```bash
+source ~/miniconda3/bin/activate
+```
+
+**永久激活（每次启动终端自动加载）：**
+```bash
+echo "source ~/miniconda3/bin/activate" >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### 2. 创建conda环境
+
+```bash
+conda create -n humble python=3.10.13
+```
+
+> **重要提示：** 这个Python版本需要跟你当前系统的Python版本一模一样（使用`python3 --version`查看系统的Python版本）
+
+#### 3. 进入humble环境
+
+```bash
+conda activate humble
+```
+
+进入后终端的开头会显示`(humble)`，表示进入成功。
+
+#### 4. 安装依赖库
+
+```bash
+conda install pinocchio casadi -c conda-forge
+```
+
+这将安装逆运动学计算所需的`pinocchio`库和优化求解器`casadi`。
+
 ## 🚀 快速开始
 
 ### 1. 配置文件设置
