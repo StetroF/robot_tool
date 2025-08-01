@@ -13,6 +13,8 @@ import meshcat.geometry as mg
 import pinocchio as pin
 import casadi
 import logging
+import time
+
 
 class Arm_IK:
     """
@@ -26,14 +28,24 @@ class Arm_IK:
         self.logger = logging.getLogger(__name__+'.Arm_IK')
         # 1. 加载完整的双臂机器人模型
         self.full_robot = pin.RobotWrapper.BuildFromURDF(urdf_path)
+        
+        ###碰撞检测部分，然后禁用l6_0和l7_0的碰撞检测(因为这两个关节会被错误的判断出碰撞)
+        self.geom_model = pin.buildGeomFromUrdf(self.full_robot.model, urdf_path, pin.GeometryType.COLLISION)
+        self.geom_model.addAllCollisionPairs()
+        # self.geom_data = pin.GeometryData(self.full_robot.model)
+        data = self.full_robot.model.createData()
+        self.geom_data = pin.GeometryData(self.geom_model)
+        self.geom_data = self.remove_collision_pair(self.geom_model,self.geom_data,'l6_0','l7_0')
+        self.geom_data = self.remove_collision_pair(self.geom_model,self.geom_data,'r6_0','r7_0')
+        
+        
         #打印full_robot的所有关节
         self.logger.info(f"full_robot关节名称: {self.full_robot.model.names}")
         # 2. 识别并选择当前手臂的运动链
         self.joint_names = [f"{self.arm_prefix}-j{i+1}" for i in range(7)]
-        # self.joint_names.append('end_to_connector')
-        # self.joint_names.append('connector_to_eef')
-        
-        # 验证关节是否存在并获取有效的关节ID
+
+
+
         joints_to_actuate_ids = []
 
         for joint_name in self.joint_names:
@@ -104,7 +116,58 @@ class Arm_IK:
 
         # 6. 设置基于CasADi的优化问题
         self._setup_optimization_problem()
-
+    def test_collision(self):
+        if not self.visualize:
+            print("可视化未启用，无法运行碰撞测试")
+            return
+        
+        try:
+            while True:
+                # 1. 生成随机关节角度
+                q = pin.randomConfiguration(self.robot.model)
+                
+                # 2. 更新运动学和几何位置
+                pin.forwardKinematics(self.robot.model, self.robot.data, q)
+                pin.updateGeometryPlacements(self.robot.model, self.robot.data, self.geom_model, self.geom_data, q)
+                
+                # 3. 更新可视化
+                if self.visualize:
+                    self.vis.display(q)
+                
+                # 4. 检测碰撞
+                pin.computeCollisions(self.geom_model, self.geom_data, True)
+                collision_detected = False
+                
+                # 5. 检查所有碰撞对
+                for k in range(len(self.geom_model.collisionPairs)):
+                    cp = self.geom_model.collisionPairs[k]
+                    cr = self.geom_data.collisionResults[k]
+                    # print(f"Collision pair {k}: {cp.first} and {cp.second}")
+                    if cr.isCollision():
+                        collision_detected = True
+                        first_geom = self.geom_model.geometryObjects[cp.first].name
+                        second_geom = self.geom_model.geometryObjects[cp.second].name
+                        
+                        print(f"\033[91m碰撞发生在: {first_geom} 和 {second_geom}\033[0m")
+                        time.sleep(5)
+                if not collision_detected:
+                    print(f"\033[92m无碰撞\033[0m")
+                
+                time.sleep(1)
+                
+        except KeyboardInterrupt:
+            print("碰撞测试结束")
+    def remove_collision_pair(self,geom_model,geom_data,start_joint_name:str,end_joint_name:str):
+        for k in range(len(geom_model.collisionPairs)-1):
+            cp = geom_model.collisionPairs[k]
+            first_geom = geom_model.geometryObjects[cp.first].name  
+            second_geom = geom_model.geometryObjects[cp.second].name
+            if first_geom == start_joint_name and second_geom == end_joint_name:
+                geom_model.removeCollisionPair(cp)
+                break
+        geom_data = pin.GeometryData(geom_model)
+        return geom_data
+    
     def _setup_target_visualizer(self):
         """为目标位姿设置一个可视化坐标轴。"""
         frame_viz_name = f'ee_target_{self.arm_prefix}'
@@ -227,14 +290,15 @@ class Arm_IK:
 
 
 def main():
-    ik_solver = Arm_IK(urdf_path="/home/nvidia/robotProject/v2_pro_airbot/src/arm-with-g2/urdf/arm-with-g2.urdf", 
-                       arm_prefix="airbot_arm",
-                       end_effector_link_name='end_link')
+    ik_solver = Arm_IK(urdf_path="/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf", 
+                       arm_prefix="r",
+                       end_effector_link_name='rt',
+                       visualize=True)
     print(f'Ik solver init')
     import time
-    while True:
-        
-        # ik_solver.ik_fun(np.eye(4))
-        time.sleep(1)
+    # while True:
+    ik_solver.test_collision()
+    # ik_solver.ik_fun(np.eye(4))
+    time.sleep(1)
 if __name__ == "__main__":
     main()
