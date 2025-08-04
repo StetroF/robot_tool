@@ -44,7 +44,7 @@ for i, geom in enumerate(geom_model_viz.geometryObjects):
     elif isinstance(geometry, hppfcl.Sphere):
         vis[geom_name].set_object(g.Sphere(geometry.radius))
     elif isinstance(geometry, hppfcl.BVHModelOBBRSS):
-        vis[geom_name].set_object(g.Box([0.1, 0.1, 0.2]))
+        vis[geom_name].set_object(g.Box([0.1, 0.1, 0.1]))
     
     vis[geom_name].set_property("color", [0, 1, 0, 0.5])  # 初始绿色
 
@@ -83,7 +83,8 @@ try:
     while True:
         # 随机生成关节角度
         q = pin.randomConfiguration(model)
-        
+        start_time = time.time()
+
         # 更新运动学和几何位置
         pin.forwardKinematics(model, data, q)
         pin.updateGeometryPlacements(model, data, geom_model, geom_data, q)
@@ -98,7 +99,6 @@ try:
             vis[geom.name].set_property("color", [0, 1, 0, 0.5])
 
         # 检测碰撞
-        start_time = time.time()
         pin.computeCollisions(geom_model, geom_data, True)
         end_time = time.time()
         print(f'碰撞检测时间: {end_time - start_time} 秒')

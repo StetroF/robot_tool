@@ -192,13 +192,12 @@ controller.move_to_tag(request)
 | `servo_publish_rate` | float | 伺服频率 | `125.0` |
 | `interpolation.default_step` | float | 插值步长 | `0.05` |
 
-### 必须实现的5个函数
+### 必须实现的4个函数
 
 1. **`get_current_pose(arm)`** - 返回 `[x, y, z, rx, ry, rz]` 列表
 2. **`get_current_joint_angles(arm)`** - 返回 `[j1, j2, j3, j4, j5, j6, j7]` 列表
-3. **`get_current_joint_velocities(arm)`** - 返回 `[v1, v2, v3, v4, v5, v6, v7]` 列表
-4. **`move_to_joint_angles(...)`** - 关节空间移动
-5. **`servo_move_to_joint_angles(...)`** - 伺服移动
+3. **`move_to_joint_angles(...)`** - 关节空间移动
+4. **`servo_move_to_joint_angles(...)`** - 伺服移动
 
 ### 数据格式要求
 
