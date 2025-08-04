@@ -16,13 +16,50 @@ if conda_env_path:
 
 # 加载 URDF 模型
 urdf_path = "/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf"
-model = pin.buildModelFromUrdf(urdf_path)
-geom_model = pin.buildGeomFromUrdf(model, urdf_path, pin.GeometryType.COLLISION)
-geom_model_viz = pin.buildGeomFromUrdf(model, urdf_path, pin.GeometryType.VISUAL)
+# model = pin.buildModelFromUrdf(urdf_path)
+full_robot = pin.RobotWrapper.BuildFromURDF(urdf_path)
+joint_names = [f"r-j{i+1}" for i in range(7)]
+joint_names.extend([f"l-j{i+1}" for i in range(7)])
+joints_to_actuate_ids = []
+for joint_name in joint_names:
+    if full_robot.model.existJointName(joint_name):
+        joint_id = full_robot.model.getJointId(joint_name)
+        joints_to_actuate_ids.append(joint_id)
+    else:
+        print(f"Joint {joint_name} not found in model")
+        raise ValueError(f"Joint {joint_name} not found in model")
+all_joint_ids = list(range(1, full_robot.model.njoints))  # 跳过universe joint (id=0)
+joints_to_lock = [jid for jid in all_joint_ids if jid not in joints_to_actuate_ids]
+q0 = pin.neutral(full_robot.model)
+robot = full_robot.buildReducedRobot(
+    list_of_joints_to_lock=joints_to_lock,
+    reference_configuration=q0
+)
+###为左臂和右臂都添加末端执行器
+for arm in ["r","l"]:
+    last_joint_name = f"{arm}-j6"
+    tool_frame_id_in_full_model = full_robot.model.getFrameId(last_joint_name)
+    tool_placement = full_robot.model.frames[tool_frame_id_in_full_model].placement
+    last_joint_id = robot.model.getJointId(last_joint_name)
+    robot.model.addFrame(
+        pin.Frame('ee',
+                  last_joint_id,
+                  tool_placement,
+                  pin.FrameType.OP_FRAME) # type: ignore
+        )
+
+
+geom_model = pin.buildGeomFromUrdf(robot.model, urdf_path, pin.GeometryType.COLLISION)
+geom_model_viz = pin.buildGeomFromUrdf(robot.model, urdf_path, pin.GeometryType.VISUAL)
 geom_model.addAllCollisionPairs()
 
+
+
+
+
+
 # 创建数据对象
-data = model.createData()
+data = robot.model.createData()
 geom_data = pin.GeometryData(geom_model)
 
 # 初始化 MeshCat
@@ -36,7 +73,10 @@ vis.delete()
 for i, geom in enumerate(geom_model_viz.geometryObjects):
     geom_name = geom.name
     geometry = geom.geometry
-    
+    if geom_name == "l-ee" or geom_name == "r-ee":
+        vis[geom_name].set_object(g.Cylinder(0.01, 0.05))
+        vis[geom_name].set_property("color", [0, 0, 1, 1])
+        continue
     if isinstance(geometry, hppfcl.Box):
         vis[geom_name].set_object(g.Box(geometry.halfSide * 2))
     elif isinstance(geometry, hppfcl.Cylinder):
@@ -45,6 +85,9 @@ for i, geom in enumerate(geom_model_viz.geometryObjects):
         vis[geom_name].set_object(g.Sphere(geometry.radius))
     elif isinstance(geometry, hppfcl.BVHModelOBBRSS):
         vis[geom_name].set_object(g.Box([0.1, 0.1, 0.1]))
+    elif isinstance(geometry, hppfcl.BVHModelOBBRSS):
+        vis[geom_name].set_object(g.Box([0.1, 0.1, 0.1]))
+    ##末端执行器显示为蓝色圆锥
     
     vis[geom_name].set_property("color", [0, 1, 0, 0.5])  # 初始绿色
 
@@ -82,13 +125,13 @@ import time
 try:
     while True:
         # 随机生成关节角度
-        q = pin.randomConfiguration(model)
+        q = pin.randomConfiguration(robot.model)
         start_time = time.time()
 
         # 更新运动学和几何位置
-        pin.forwardKinematics(model, data, q)
-        pin.updateGeometryPlacements(model, data, geom_model, geom_data, q)
-        pin.updateGeometryPlacements(model, data, geom_model_viz, geom_data, q)
+        pin.forwardKinematics(robot.model, data, q)
+        pin.updateGeometryPlacements(robot.model, data, geom_model, geom_data, q)
+        pin.updateGeometryPlacements(robot.model, data, geom_model_viz, geom_data, q)
 
         # 更新可视化
         for i, geom in enumerate(geom_model_viz.geometryObjects):

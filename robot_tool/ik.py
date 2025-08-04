@@ -20,7 +20,7 @@ class Arm_IK:
     """
     一个通用的、基于优化的逆运动学求解器，适用于7自由度机械臂。
     """
-    def __init__(self, urdf_path, arm_prefix, end_effector_link_name, num_joints=6, visualize=False):
+    def __init__(self, urdf_path, arm_prefix, end_effector_link_name, num_joints=6, visualize=False,enable_collision_detection=True,igno_coll_pairs=[['l6_0','l7_0'],['r6_0','r7_0']]):
         np.set_printoptions(precision=5, suppress=True, linewidth=200)
 
         self.arm_prefix = arm_prefix
@@ -29,17 +29,6 @@ class Arm_IK:
         # 1. 加载完整的双臂机器人模型
         self.full_robot = pin.RobotWrapper.BuildFromURDF(urdf_path)
         
-        ###碰撞检测部分，然后禁用l6_0和l7_0的碰撞检测(因为这两个关节会被错误的判断出碰撞)
-        self.geom_model = pin.buildGeomFromUrdf(self.full_robot.model, urdf_path, pin.GeometryType.COLLISION)
-        self.geom_model.addAllCollisionPairs()
-        self.full_robot_data = self.full_robot.model.createData()
-        self.geom_data = pin.GeometryData(self.geom_model)
-        self.geom_data = self.remove_collision_pair(self.geom_model,self.geom_data,'l6_0','l7_0')
-        self.geom_data = self.remove_collision_pair(self.geom_model,self.geom_data,'r6_0','r7_0')
-        
-        
-        #打印full_robot的所有关节
-        self.logger.info(f"full_robot关节名称: {self.full_robot.model.names}")
         # 2. 识别并选择当前手臂的运动链
         self.joint_names = [f"{self.arm_prefix}-j{i+1}" for i in range(7)]
 
@@ -106,6 +95,18 @@ class Arm_IK:
         print(f'init_data: {self.init_data}')
         self.history_data = np.zeros(self.robot.model.nq)
         
+        
+        ###碰撞检测部分，然后禁用l6_0和l7_0的碰撞检测(因为这两个关节会被错误的判断出碰撞)
+        if enable_collision_detection:
+            self.geom_model = pin.buildGeomFromUrdf(self.robot.model, urdf_path, pin.GeometryType.COLLISION)
+            self.geom_model.addAllCollisionPairs()
+            self.geom_data = pin.GeometryData(self.geom_model)
+            for pair in igno_coll_pairs:
+                print(f"Ignoring collision pair: {pair}")
+                self.geom_data = self.remove_collision_pair(self.geom_model,self.geom_data,pair[0],pair[1])
+            
+        
+        
         if self.visualize:
             self.vis = MeshcatVisualizer(self.robot.model, self.robot.collision_model, self.robot.visual_model)
             self.vis.initViewer(open=True)
@@ -116,6 +117,9 @@ class Arm_IK:
         # 6. 设置基于CasADi的优化问题
         self._setup_optimization_problem()
     def test_collision(self):
+        if not self.geom_model: #type: ignore
+            print("碰撞检测未启用，无法运行碰撞测试")
+            return
         if not self.visualize:
             print("可视化未启用，无法运行碰撞测试")
             return
@@ -156,6 +160,8 @@ class Arm_IK:
                 
         except KeyboardInterrupt:
             print("碰撞测试结束")
+    
+
     def remove_collision_pair(self,geom_model,geom_data,start_joint_name:str,end_joint_name:str):
         for k in range(len(geom_model.collisionPairs)-1):
             cp = geom_model.collisionPairs[k]
@@ -292,7 +298,9 @@ def main():
     ik_solver = Arm_IK(urdf_path="/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf", 
                        arm_prefix="r",
                        end_effector_link_name='rt',
-                       visualize=True)
+                       visualize=True,
+                       enable_collision_detection=True,
+                       igno_coll_pairs=[['l6_0','l7_0'],['r6_0','r7_0']])
     print(f'Ik solver init')
     import time
     # while True:

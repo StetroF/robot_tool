@@ -10,6 +10,9 @@ jaka_controller:
     # 末端执行器链接名称
     end_effector_link_name: ["rt", "lt"]  # 右臂末端'rt'，左臂末端'lt'
     
+
+
+
     # 关节数量
     num_joints: 7  # 7自由度机械臂
     
@@ -31,3 +34,7 @@ jaka_controller:
       default_acceleration: 0.1  # 默认加速度
       max_velocity: 1.0          # 最大速度
       max_acceleration: 1.0      # 最大加速度 
+    
+    # 碰撞检测
+    enable_collision_detection: true
+    igno_coll_pairs: "[['l6_0','l7_0'],['r6_0','r7_0']]" ### 节卡机械臂的l6_0和l7_0，r6_0和r7_0在pinocchio碰撞检测时会莫名判断出碰撞，所以需要忽略

@@ -60,7 +60,7 @@ jaka_controller:
     # 手臂前缀（必须）- 用于区分左右臂
     arm_prefix: ["r", "l"]  # 右臂前缀'r'，左臂前缀'l'
     
-    # 末端执行器链接名称（必须）- URDF中的末端链接名
+    # 末端执行器链接名称（非必须）- URDF中的末端链接名
     end_effector_link_name: ["rt", "lt"]  # 右臂末端'rt'，左臂末端'lt'
     
     # 关节数量（必须）
@@ -82,6 +82,12 @@ jaka_controller:
     motion:
       default_velocity: 0.1      # 默认速度
       default_acceleration: 0.1  # 默认加速度
+
+    
+    # 碰撞检测
+    enable_collision_detection: true
+    igno_coll_pairs: "[['l6_0','l7_0'],['r6_0','r7_0']]" ### 节卡机械臂的l6_0和l7_0，r6_0和r7_0在pinocchio碰撞检测时会莫名判断出碰撞，所以需要忽略
+
 ```
 
 ### 2. 实现您的机器人控制器

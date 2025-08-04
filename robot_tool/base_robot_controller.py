@@ -1,6 +1,9 @@
 """
 机器人控制器基类 - 提供双臂机器人的运动控制功能
 
+⚠️ 重要说明：这是一个抽象基类（ABC），不能直接实例化使用！
+必须继承此类并实现必要的抽象方法才能创建具体的机器人控制器。
+
 主要功能：
 1. 双臂机器人的逆运动学求解
 2. 位姿插值运动控制
@@ -9,7 +12,29 @@
 核心方法：
 - move_to_tag(): 主要的运动控制接口，支持插值和非插值两种模式
 
-使用示例：
+继承实现指南：
+要创建自己的机器人控制器，需要继承此类并实现以下4个抽象方法：
+
+1. get_current_pose(arm) -> List[float]:
+   - 获取指定手臂的当前末端执行器位姿
+   - 返回格式：[x, y, z, rx, ry, rz]
+
+2. get_current_joint_angles(arm) -> Union[List[float], np.ndarray, object]:
+   - 获取指定手臂的当前关节角度
+   - 可以是任何格式，基类会自动标准化
+
+3. move_to_joint_angles(joint_angles, velocity, acceleration, arm, block):
+   - 执行关节空间运动
+   - 用于非插值模式的运动控制
+
+4. servo_move_to_joint_angles(joint_angles, velocity, acceleration, arm):
+   - 执行伺服运动
+   - 用于插值模式的运动控制
+
+参考实现：
+可以参考 jaka_controller.py 中的 JakaController 类，了解如何实现这些抽象方法。
+
+使用示例（在实现具体控制器后）：
     # 创建控制器实例
     controller = YourRobotController(urdf_path, arm_prefix, end_effector_link_name)
     
@@ -42,6 +67,7 @@
 - interpolate=False 时使用普通关节运动，速度更快但轨迹可能不够平滑
 - 位姿格式为 [x, y, z, rx, ry, rz]
 - 支持单臂控制(Arm.left/Arm.right)或双臂同时控制(Arm.both)
+- 必须先实现抽象方法才能使用此基类
 """
 
 from robot_tool.ik import Arm_IK
@@ -115,15 +141,32 @@ class MoveToRequest(BaseModel):
 
 class BaseRobotController(ABC):
     def __init__(self, urdf_path, arm_prefix: List[str], 
-                 end_effector_link_name: List[str], num_joints=6, visualize=False):
+                 end_effector_link_name: List[str], num_joints=6, visualize=False, 
+                 enable_collision_detection=True, igno_coll_pairs=[['l6_0','l7_0'],['r6_0','r7_0']]):
+        """
+        机器人控制器基类构造函数
+        
+        Args:
+            urdf_path: URDF文件路径
+            arm_prefix: 手臂前缀列表，如 ['left', 'right']
+            end_effector_link_name: 末端执行器链接名称列表
+            num_joints: 关节数量，默认6个
+            visualize: 是否启用可视化，默认False    
+            enable_collision_detection: 是否启用碰撞检测，默认True
+            igno_coll_pairs: 忽略的碰撞对列表
+        """
         self.R_inverse_solution = Arm_IK(urdf_path, arm_prefix[0], 
                                        end_effector_link_name[0], 
                                        num_joints=num_joints, 
-                                       visualize=visualize)
+                                       visualize=visualize,
+                                       enable_collision_detection=enable_collision_detection,
+                                       igno_coll_pairs=igno_coll_pairs)
         self.L_inverse_solution = Arm_IK(urdf_path, arm_prefix[1], 
                                        end_effector_link_name[1], 
                                        num_joints=num_joints, 
-                                       visualize=visualize)
+                                       visualize=visualize,
+                                       enable_collision_detection=enable_collision_detection,
+                                       igno_coll_pairs=igno_coll_pairs)
         self.interpolator = PoseInterpolator()
         self.num_joints = num_joints
     
@@ -378,10 +421,22 @@ class BaseRobotController(ABC):
     def get_current_pose(self, arm=Arm.right) -> List[float]:
         """
         获取当前末端执行器位姿
+        
+        抽象方法：子类必须实现此方法以获取机器人的当前位姿信息
+        此方法用于运动规划中的起始点计算和状态监控
+        
         Args:
-            arm: 手臂选择
+            arm: 手臂选择 (Arm.left/right/both)
         Returns:
             List[float]: [x, y, z, rx, ry, rz] 格式的位姿
+                x, y, z: 位置坐标（单位：米）
+                rx, ry, rz: 旋转角度（单位：弧度）
+        
+        实现要求：
+        - 必须返回6个浮点数的列表
+        - 位置坐标使用米为单位
+        - 旋转角度使用弧度为单位
+        - 旋转顺序为ZYX欧拉角
         """
         pass
     
@@ -389,10 +444,23 @@ class BaseRobotController(ABC):
     def get_current_joint_angles(self, arm=Arm.right) -> Union[List[float], np.ndarray, object]:
         """
         获取当前关节角度
+        
+        抽象方法：子类必须实现此方法以获取机器人的当前关节角度
+        此方法用于逆运动学求解的初始角度设置和关节空间运动规划
+        
         Args:
-            arm: 手臂选择
+            arm: 手臂选择 (Arm.left/right/both)
         Returns:
             可以是任何格式，基类会自动标准化为List[float]
+            支持格式：
+            - List[float]: 关节角度列表
+            - np.ndarray: numpy数组
+            - 自定义对象: 包含joint_values属性的对象
+        
+        实现要求：
+        - 返回的关节角度数量必须与num_joints一致
+        - 角度单位建议使用弧度
+        - 如果返回自定义对象，必须包含joint_values属性
         """
         pass
     
@@ -415,7 +483,24 @@ class BaseRobotController(ABC):
                            arm=Arm.right, block=False):
         """
         移动到指定关节角度（关节空间移动）
-        子类可以重写此方法以提供自定义实现
+        
+        抽象方法：子类必须实现此方法以执行关节空间运动
+        此方法用于非插值模式的运动控制，直接移动到目标关节角度
+        
+        Args:
+            joint_angles: 目标关节角度字典
+                {Arm.left: [j1, j2, ..., jn], Arm.right: [j1, j2, ..., jn]}
+            velocity: 运动速度，可以是单个值或每个关节的速度列表
+            acceleration: 运动加速度，可以是单个值或每个关节的加速度列表
+            arm: 手臂选择 (Arm.left/right/both)
+            block: 是否阻塞执行，True表示等待运动完成
+        
+        实现要求：
+        - 必须支持单臂和双臂运动
+        - 关节角度数量必须与num_joints一致
+        - 建议支持阻塞和非阻塞模式
+        - 速度单位建议使用度/秒
+        - 加速度单位建议使用度/秒²
         """
         raise NotImplementedError("子类必须实现 move_to_joint_angles 方法")
     
@@ -423,7 +508,26 @@ class BaseRobotController(ABC):
                                  velocity=None, acceleration=None, arm=Arm.right):
         """
         伺服移动到指定关节角度（用于插值运动）
-        子类可以重写此方法以提供自定义实现
+        
+        抽象方法：子类必须实现此方法以执行伺服运动
+        此方法用于插值模式的运动控制，执行平滑的轨迹运动
+        
+        Args:
+            joint_angles: 关节角度序列
+                格式1: {Arm.left: [[j1,j2,...], [j1,j2,...], ...], 
+                       Arm.right: [[j1,j2,...], [j1,j2,...], ...]}
+                格式2: [[j1,j2,...], [j1,j2,...], ...] (单臂情况)
+                每个内部列表代表一个时间点的关节角度
+            velocity: 运动速度（可选，具体实现可自定义）
+            acceleration: 运动加速度（可选，具体实现可自定义）
+            arm: 手臂选择 (Arm.left/right/both)
+        
+        实现要求：
+        - 必须支持关节角度序列的连续执行
+        - 确保轨迹平滑，避免突变
+        - 支持单臂和双臂的伺服运动
+        - 建议实现实时轨迹跟踪
+        - 每个关节角度序列的长度必须一致
         """
         raise NotImplementedError("子类必须实现 servo_move_to_joint_angles 方法")
     

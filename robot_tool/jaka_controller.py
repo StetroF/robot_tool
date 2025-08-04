@@ -15,13 +15,14 @@ import time
 import threading
 import time
 from robot_tool.interpolate import InterpolateType
+from ast import literal_eval
 class JakaController(BaseRobotController):
     def __init__(self):
         self.node = Node('jaka_controller')
         self.robot_state: RobotStateDual = None
         
         self._init_ros2()
-        super().__init__(self.urdf_path, self.arm_prefix, self.end_effector_link_name, self.num_joints, self.visualize)
+        super().__init__(self.urdf_path, self.arm_prefix, self.end_effector_link_name, self.num_joints, self.visualize,self.enable_collision_detection,self.igno_coll_pairs)
 
     def _init_ros2(self):
         self.node.declare_parameter('urdf_path', '/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf')
@@ -30,6 +31,8 @@ class JakaController(BaseRobotController):
         self.node.declare_parameter('num_joints', 7)
         self.node.declare_parameter('visualize', False)
         self.node.declare_parameter('servo_publish_rate', 125.0)
+        self.node.declare_parameter('enable_collision_detection', True)
+        self.node.declare_parameter('igno_coll_pairs', "[['l6_0','l7_0'],['r6_0','r7_0']]")
         
         # 插值参数
         self.node.declare_parameter('interpolation.default_step', 0.01)
@@ -49,7 +52,9 @@ class JakaController(BaseRobotController):
         self.num_joints = self.node.get_parameter('num_joints').value
         self.visualize = self.node.get_parameter('visualize').value
         self.servo_publish_rate = self.node.get_parameter('servo_publish_rate').value
-        
+        self.enable_collision_detection = self.node.get_parameter('enable_collision_detection').value
+        self.igno_coll_pairs = self.node.get_parameter('igno_coll_pairs').value
+        self.igno_coll_pairs = literal_eval(self.igno_coll_pairs) ##字符串转列表
         # 获取插值参数
         self.default_step = self.node.get_parameter('interpolation.default_step').value
         self.max_points = self.node.get_parameter('interpolation.max_points').value
@@ -71,7 +76,8 @@ class JakaController(BaseRobotController):
         self.node.get_logger().info(f'  Default step: {self.default_step}m')
         self.node.get_logger().info(f'  Default velocity: {self.default_velocity}')
         self.node.get_logger().info(f'  Default acceleration: {self.default_acceleration}')
-        
+        self.node.get_logger().info(f'  Enable collision detection: {self.enable_collision_detection}')
+        self.node.get_logger().info(f'  Ignored collision pairs: {self.igno_coll_pairs}')
         self.node.create_subscription(RobotStateDual, 'robot_state_dual', self.robot_state_callback, 10)
         self.move_j_client = self.node.create_client(MultiMovJ, 'multi_movj')
         
