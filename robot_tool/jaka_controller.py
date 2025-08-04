@@ -1,6 +1,6 @@
 """
 JAKA机器人控制器
-1.调用ik.py的逆解接口,计算出关节角度，发送给/servo_joint_cmd,使得机器人运动
+派生自BaseRobotController,实现JAKA机器人的运动控制
 """
 
 import rclpy
