@@ -84,9 +84,10 @@ class JakaController(BaseRobotController):
         # 创建伺服发布器
         self.servo_publisher = self.node.create_publisher(ServoJointCommand, '/servo_joint_command', 10)
         
-        # 等待服务可用
-        while not self.move_j_client.wait_for_service(timeout_sec=1.0):
-            self.node.get_logger().info('Waiting for multi_movj service...')
+        ##TODO暂时禁用
+        # # 等待服务可用
+        # while not self.move_j_client.wait_for_service(timeout_sec=1.0):
+        #     self.node.get_logger().info('Waiting for multi_movj service...')
     
     # ==================== 必须实现的抽象方法 ====================
     

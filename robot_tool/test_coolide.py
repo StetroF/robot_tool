@@ -18,8 +18,8 @@ if conda_env_path:
 urdf_path = "/home/zy/Project/jaka3/ROS2/jaka_ws/src/dual_arm/urdf/dual_arm.urdf"
 # model = pin.buildModelFromUrdf(urdf_path)
 full_robot = pin.RobotWrapper.BuildFromURDF(urdf_path)
-joint_names = [f"r-j{i+1}" for i in range(7)]
-joint_names.extend([f"l-j{i+1}" for i in range(7)])
+joint_names = [f"l-j{i+1}" for i in range(7)]
+joint_names.extend([f"r-j{i+1}" for i in range(7)])
 joints_to_actuate_ids = []
 for joint_name in joint_names:
     if full_robot.model.existJointName(joint_name):
@@ -36,7 +36,7 @@ robot = full_robot.buildReducedRobot(
     reference_configuration=q0
 )
 ###为左臂和右臂都添加末端执行器
-for arm in ["r","l"]:
+for arm in ["l","r"]:
     last_joint_name = f"{arm}-j6"
     tool_frame_id_in_full_model = full_robot.model.getFrameId(last_joint_name)
     tool_placement = full_robot.model.frames[tool_frame_id_in_full_model].placement
@@ -52,15 +52,9 @@ for arm in ["r","l"]:
 geom_model = pin.buildGeomFromUrdf(robot.model, urdf_path, pin.GeometryType.COLLISION)
 geom_model_viz = pin.buildGeomFromUrdf(robot.model, urdf_path, pin.GeometryType.VISUAL)
 geom_model.addAllCollisionPairs()
-
-
-
-
-
-
-# 创建数据对象
-data = robot.model.createData()
 geom_data = pin.GeometryData(geom_model)
+
+
 
 # 初始化 MeshCat
 vis = meshcat.Visualizer().open()
@@ -126,12 +120,16 @@ try:
     while True:
         # 随机生成关节角度
         q = pin.randomConfiguration(robot.model)
+        
         start_time = time.time()
-
+        print(f'关节角度: {q}')
         # 更新运动学和几何位置
-        pin.forwardKinematics(robot.model, data, q)
-        pin.updateGeometryPlacements(robot.model, data, geom_model, geom_data, q)
-        pin.updateGeometryPlacements(robot.model, data, geom_model_viz, geom_data, q)
+        for i in range  (full_robot.model.njoints):
+            print(f'关节名称: {full_robot.model.names[i]}')
+        # print(f'关节数量: {f.model.nq}')
+        pin.forwardKinematics(robot.model, robot.data, q)
+        pin.updateGeometryPlacements(robot.model, robot.data, geom_model, geom_data, q)
+        pin.updateGeometryPlacements(robot.model, robot.data, geom_model_viz, geom_data, q)
 
         # 更新可视化
         for i, geom in enumerate(geom_model_viz.geometryObjects):

@@ -98,7 +98,9 @@ class Arm_IK:
         
         ###碰撞检测部分，然后禁用l6_0和l7_0的碰撞检测(因为这两个关节会被错误的判断出碰撞)
         if enable_collision_detection:
-            self.geom_model = pin.buildGeomFromUrdf(self.robot.model, urdf_path, pin.GeometryType.COLLISION)
+            self.enable_collision_detection = True
+            
+            self.geom_model = pin.buildGeomFromUrdf(self.full_robot.model, urdf_path, pin.GeometryType.COLLISION)
             self.geom_model.addAllCollisionPairs()
             self.geom_data = pin.GeometryData(self.geom_model)
             for pair in igno_coll_pairs:
@@ -108,14 +110,42 @@ class Arm_IK:
         
         
         if self.visualize:
-            self.vis = MeshcatVisualizer(self.robot.model, self.robot.collision_model, self.robot.visual_model)
+            self.vis = MeshcatVisualizer(self.full_robot.model, self.full_robot.collision_model, self.full_robot.visual_model)
             self.vis.initViewer(open=True)
             self.vis.loadViewerModel(f"pinocchio/{self.arm_prefix}")
-            self.vis.display(pin.neutral(self.robot.model))
+            self.vis.display(pin.neutral(self.full_robot.model))
             self._setup_target_visualizer()
 
         # 6. 设置基于CasADi的优化问题
         self._setup_optimization_problem()
+    def collision_detect(self,q):
+        """
+        碰撞检测，返回是否发生碰撞，以及碰撞对名称
+        传入参数: 
+         q: [q1,q2,...,qn] 关节角度
+        返回:
+            collision_detected: 是否发生碰撞
+            collision_pair: ['l6_0','l7_0'] 碰撞对名称
+        """
+        if len(q) != self.full_robot.model.nq:
+            raise ValueError(f'关节角度数量不匹配,期望数量: {self.full_robot.model.nq}, 参数传入数量: {len(q)}')
+        
+        
+        start_time = time.time()
+        pin.forwardKinematics(self.full_robot.model, self.full_robot.data, q)
+        pin.updateGeometryPlacements(self.full_robot.model, self.full_robot.data, self.geom_model, self.geom_data, q) 
+        pin.computeCollisions(self.geom_model, self.geom_data, True)
+        print(f'collision time: {time.time() - start_time}')                
+        for k in range(len(self.geom_model.collisionPairs)):
+            cp = self.geom_model.collisionPairs[k]
+            cr = self.geom_data.collisionResults[k]
+            if cr.isCollision():
+                first_geom = self.geom_model.geometryObjects[cp.first].name
+                second_geom = self.geom_model.geometryObjects[cp.second].name
+                print(f"Collision pair {k}: {first_geom} and {second_geom}")
+                return True,[first_geom,second_geom]
+        return False,[]
+    
     def test_collision(self):
         if not self.geom_model: #type: ignore
             print("碰撞检测未启用，无法运行碰撞测试")
@@ -127,11 +157,10 @@ class Arm_IK:
         try:
             while True:
                 # 1. 生成随机关节角度
-                q = pin.randomConfiguration(self.robot.model)
-                
+                q = pin.randomConfiguration(self.full_robot.model)
                 # 2. 更新运动学和几何位置
-                pin.forwardKinematics(self.robot.model, self.robot.data, q)
-                pin.updateGeometryPlacements(self.robot.model, self.robot.data, self.geom_model, self.geom_data, q)
+                pin.forwardKinematics(self.full_robot.model, self.full_robot.data, q)
+                pin.updateGeometryPlacements(self.full_robot.model, self.full_robot.data, self.geom_model, self.geom_data, q)
                 
                 # 3. 更新可视化
                 if self.visualize:
@@ -140,23 +169,17 @@ class Arm_IK:
                 # 4. 检测碰撞
                 pin.computeCollisions(self.geom_model, self.geom_data, True)
                 collision_detected = False
-                
                 # 5. 检查所有碰撞对
-                for k in range(len(self.geom_model.collisionPairs)):
-                    cp = self.geom_model.collisionPairs[k]
-                    cr = self.geom_data.collisionResults[k]
-                    # print(f"Collision pair {k}: {cp.first} and {cp.second}")
-                    if cr.isCollision():
-                        collision_detected = True
-                        first_geom = self.geom_model.geometryObjects[cp.first].name
-                        second_geom = self.geom_model.geometryObjects[cp.second].name
-                        
-                        print(f"\033[91m碰撞发生在: {first_geom} 和 {second_geom}\033[0m")
-                        time.sleep(5)
-                if not collision_detected:
+                collision_detected,collision_pair = self.collision_detect(q)
+                if collision_detected:
+                    print(f"\033[91m碰撞发生在: {collision_pair}\033[0m")
+                    # if (collision_pair[0].startswith('l') and collision_pair[1].startswith('r')) or (collision_pair[0].startswith('r') and collision_pair[1].startswith('l')):
+                    #     print(f'碰撞发生在左右臂之间')
+                    time.sleep(5)
+                    # time.sleep(5)
+                else:
                     print(f"\033[92m无碰撞\033[0m")
-                
-                time.sleep(1)
+                time.sleep(0.3)
                 
         except KeyboardInterrupt:
             print("碰撞测试结束")

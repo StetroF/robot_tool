@@ -135,7 +135,7 @@ class MoveToRequest(BaseModel):
     velocity: float = 20.0  ##°/s
     acceleration: float = 20.0  ##°/s^2
     block: bool = False ##运动时是否阻塞
-    
+    check_collision: bool = False ##是否进行碰撞检测
 
 
 
@@ -151,7 +151,7 @@ class BaseRobotController(ABC):
             arm_prefix: 手臂前缀列表，如 ['left', 'right']
             end_effector_link_name: 末端执行器链接名称列表
             num_joints: 关节数量，默认6个
-            visualize: 是否启用可视化，默认False    
+            visualize: 是否启用可视化，默认False
             enable_collision_detection: 是否启用碰撞检测，默认True
             igno_coll_pairs: 忽略的碰撞对列表
         """
@@ -188,6 +188,7 @@ class BaseRobotController(ABC):
                 - velocity: 运动速度 
                 - acceleration: 运动加速度 
                 - block: 是否阻塞执行
+                - check_collision: 是否进行碰撞检测
         
         工作流程：
         1. 获取当前位姿作为起始点
@@ -209,6 +210,7 @@ class BaseRobotController(ABC):
         arm = request.arm
         current_pose = self.get_current_pose(arm)
         
+        
         if request.interpolate:
             # 插值模式：使用伺服控制，计算多组关节角度
             interpolated_poses = self.interpolate_pose(
@@ -217,11 +219,32 @@ class BaseRobotController(ABC):
             # 计算所有插值点的关节角度序列
             joint_angles_sequence = self._calculate_interpolated_joint_angles(interpolated_poses, arm)
             
-            # 伺服模式移动
+            if request.check_collision:
+                ###对于n组求解关节角，把所有关节角都放入到一个列表中，调用其中一个碰撞检测
+                num_of_sequence = len(joint_angles_sequence[Arm.left]) ##使用right也是一样的，因为left和right插值数量相同
+                for i in range(num_of_sequence):
+                    joint_angles_list = []
+                    for arm,angles in joint_angles_sequence.items():
+                        joint_angles_list.extend(angles[i])
+                    collision_detected, collision_pair = self.R_inverse_solution.collision_detect(joint_angles_list)
+                    if collision_detected:
+                        print(f'碰撞发生在: {collision_pair}')
+                        return
+            # 伺服模式移动  
             self._execute_servo_motion(joint_angles_sequence, arm)
         else:
             # 非插值模式：使用普通移动，只计算一组关节角度
             angles = self._calculate_single_pose_joint_angles(target_pose, arm)
+            
+            if request.check_collision:
+                joint_angle_list = []
+                for arm,angles in angles.items():
+                    joint_angle_list.extend(angles)
+            collision_detected, collision_pair = self.R_inverse_solution.collision_detect(joint_angle_list)
+            if collision_detected:
+                print(f'碰撞发生在: {collision_pair}')
+                return
+            
             self._execute_joint_motion(angles, request.velocity, request.acceleration, arm, request.block)
     
     def _calculate_interpolated_joint_angles(self, interpolated_poses, arm) -> Dict[Arm, List[List[float]]]:
@@ -301,7 +324,14 @@ class BaseRobotController(ABC):
         return angles
     
     def _calculate_single_pose_joint_angles_with_init(self, pose, arm, init_left_angles=None, init_right_angles=None) -> Dict[Arm, List[float]]:
-        """计算单一位姿对应的关节角度（支持传入初始关节角度）"""
+        """计算单一位姿对应的关节角度（支持传入初始关节角度）
+        返回:
+        - angles: 
+            {
+                Arm.left: [j1,j2,...,jn],
+                Arm.right: [j1,j2,...,jn]
+            }
+        """
         angles = {
             Arm.left: [0.0] * self.num_joints,
             Arm.right: [0.0] * self.num_joints
