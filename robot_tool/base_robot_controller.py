@@ -1,3 +1,49 @@
+"""
+机器人控制器基类 - 提供双臂机器人的运动控制功能
+
+主要功能：
+1. 双臂机器人的逆运动学求解
+2. 位姿插值运动控制
+3. 笛卡尔空间的运动规划
+
+核心方法：
+- move_to_tag(): 主要的运动控制接口，支持插值和非插值两种模式
+
+使用示例：
+    # 创建控制器实例
+    controller = YourRobotController(urdf_path, arm_prefix, end_effector_link_name)
+    
+    # 简单移动到目标位姿（非插值模式）
+    request = MoveToRequest(
+        target_pose=[0.5, 0.3, 0.4, 0, 0, 0],  # [x, y, z, rx, ry, rz]
+        arm=Arm.right,
+        interpolate=False,
+        velocity=20.0,
+        acceleration=20.0,
+        block=True
+    )
+    controller.move_to_tag(request)
+    
+    # 插值运动到目标位姿（伺服模式）
+    request = MoveToRequest(
+        target_pose=[0.6, 0.4, 0.5, 0.1, 0.1, 0.1],
+        arm=Arm.both,  # 同时控制双臂
+        interpolate=True,
+        interpolate_type=InterpolateType.LINEAR,
+        step=0.01,  # 插值步长
+        velocity=20.0,
+        acceleration=20.0,
+        block=False
+    )
+    controller.move_to_tag(request)
+
+注意事项：
+- interpolate=True 时会自动使用伺服运动模式，提供更平滑的运动轨迹
+- interpolate=False 时使用普通关节运动，速度更快但轨迹可能不够平滑
+- 位姿格式为 [x, y, z, rx, ry, rz]
+- 支持单臂控制(Arm.left/Arm.right)或双臂同时控制(Arm.both)
+"""
+
 from robot_tool.ik import Arm_IK
 from abc import ABC, abstractmethod
 from robot_tool.interpolate import PoseInterpolator
@@ -9,11 +55,52 @@ from typing import Literal
 from enum import Enum
 from robot_tool.interpolate import InterpolateType
 class Arm:
+    """
+    手臂选择枚举
+    - left: 左臂
+    - right: 右臂  
+    - both: 双臂同时控制
+    """
     left = 0
     right = 1
     both = -1
 
 class MoveToRequest(BaseModel):
+    """
+    运动请求参数模型
+    
+    参数说明：
+    - target_pose: 目标位姿 [x, y, z, rx, ry, rz]
+        x, y, z: 位置坐标（单位：米或毫米，系统会自动检测并转换）
+        rx, ry, rz: 旋转角度（单位：弧度或度，系统会自动检测并转换）
+    
+    - arm: 手臂选择
+        Arm.left: 只控制左臂
+        Arm.right: 只控制右臂（默认）
+        Arm.both: 同时控制双臂
+    
+    - interpolate: 是否启用插值运动
+        True: 启用插值，使用伺服运动模式，轨迹更平滑
+        False: 不插值，使用普通关节运动，速度更快
+    
+    - interpolate_type: 插值类型（仅在interpolate=True时有效）
+        InterpolateType.LINEAR: 线性插值
+        InterpolateType.CIRCULAR: 圆弧插值
+        InterpolateType.SPLINE: 样条插值
+    
+    - step: 插值步长（仅在interpolate=True时有效）
+        控制插值点的密度，值越小轨迹越平滑但计算量越大
+    
+    - velocity: 运动速度（度/秒）
+        控制关节运动的最大角速度
+    
+    - acceleration: 运动加速度（度/秒²）
+        控制关节运动的最大角加速度
+    
+    - block: 是否阻塞执行
+        True: 等待运动完成后才返回
+        False: 立即返回，不等待运动完成
+    """
     target_pose: list[float]    #### [x,y,z,rx,ry,rz]
     arm: int = Arm.right
     interpolate: bool = False
@@ -43,8 +130,37 @@ class BaseRobotController(ABC):
     def move_to_tag(self, request: MoveToRequest):
         """
         移动到目标位姿（自动根据插值决定使用伺服模式）
+        
+        这是机器人控制器的主要运动接口，支持两种运动模式：
+        1. 插值模式 (interpolate=True): 使用伺服运动，计算多个中间点，轨迹更平滑
+        2. 非插值模式 (interpolate=False): 直接运动到目标位姿，速度更快
+        
         Args:
-            request: MoveToRequest对象，包含目标位姿、手臂选择、插值参数等
+            request: MoveToRequest对象，包含以下参数：
+                - target_pose: 目标位姿 [x, y, z, rx, ry, rz]
+                - arm: 手臂选择 (Arm.left/right/both)
+                - interpolate: 是否启用插值运动
+                - interpolate_type: 插值类型 (仅在interpolate=True时有效)
+                - step: 插值步长 (仅在interpolate=True时有效)
+                - velocity: 运动速度 
+                - acceleration: 运动加速度 
+                - block: 是否阻塞执行
+        
+        工作流程：
+        1. 获取当前位姿作为起始点
+        2. 如果启用插值：
+           - 计算多个中间位姿点
+           - 对每个位姿点进行逆运动学求解
+           - 使用伺服模式执行运动序列
+        3. 如果不启用插值：
+           - 直接对目标位姿进行逆运动学求解
+           - 使用普通关节运动模式
+        
+        注意事项：
+        - interpolate=True 时自动绑定伺服运动模式，确保轨迹平滑
+        - interpolate=False 时使用普通关节运动，适合快速定位
+        - 支持单臂或双臂同时控制
+        - 位姿坐标和角度单位会自动检测并转换
         """
         target_pose = request.target_pose
         arm = request.arm
