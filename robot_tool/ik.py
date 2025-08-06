@@ -20,7 +20,7 @@ class Arm_IK:
     """
     一个通用的、基于优化的逆运动学求解器，适用于7自由度机械臂。
     """
-    def __init__(self, urdf_path, arm_prefix, end_effector_link_name, num_joints=6, visualize=False,enable_collision_detection=True,igno_coll_pairs=[['l6_0','l7_0'],['r6_0','r7_0']]):
+    def __init__(self, urdf_path, arm_prefix, end_effector_link_name, num_joints=6, visualize=False,enable_collision_detection=False,igno_coll_pairs=[['l6_0','l7_0'],['r6_0','r7_0']]):
         np.set_printoptions(precision=5, suppress=True, linewidth=200)
 
         self.arm_prefix = arm_prefix

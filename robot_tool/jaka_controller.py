@@ -86,8 +86,8 @@ class JakaController(BaseRobotController):
         
         ##TODO暂时禁用
         # # 等待服务可用
-        # while not self.move_j_client.wait_for_service(timeout_sec=1.0):
-        #     self.node.get_logger().info('Waiting for multi_movj service...')
+        while not self.move_j_client.wait_for_service(timeout_sec=1.0):
+            self.node.get_logger().info('Waiting for multi_movj service...')
     
     # ==================== 必须实现的抽象方法 ====================
     

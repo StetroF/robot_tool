@@ -121,13 +121,12 @@ try:
         # 随机生成关节角度
         q = pin.randomConfiguration(robot.model)
         
-        start_time = time.time()
+
         print(f'关节角度: {q}')
-        # 更新运动学和几何位置
-        for i in range  (full_robot.model.njoints):
-            print(f'关节名称: {full_robot.model.names[i]}')
+
         # print(f'关节数量: {f.model.nq}')
         pin.forwardKinematics(robot.model, robot.data, q)
+        
         pin.updateGeometryPlacements(robot.model, robot.data, geom_model, geom_data, q)
         pin.updateGeometryPlacements(robot.model, robot.data, geom_model_viz, geom_data, q)
 
@@ -138,7 +137,7 @@ try:
         # 重置所有几何体为绿色
         for geom in geom_model_viz.geometryObjects:
             vis[geom.name].set_property("color", [0, 1, 0, 0.5])
-
+        start_time = time.time()
         # 检测碰撞
         pin.computeCollisions(geom_model, geom_data, True)
         end_time = time.time()
@@ -160,6 +159,7 @@ try:
                 vis[second_geom].set_property("color", [1, 0, 0, 1])
                 
                 print(f"\033[91m碰撞发生在: {first_geom} 和 {second_geom}\033[0m")
+
                 time.sleep(5)
         if not collision_detected:
             print(f"\033[92m无碰撞\033[0m")
